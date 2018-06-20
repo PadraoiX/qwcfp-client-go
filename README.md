@@ -21,7 +21,7 @@ git push origin master
 ```
 
 ### Exemple
-```
+```go
 package main
 
 import (
