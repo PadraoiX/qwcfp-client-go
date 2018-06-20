@@ -1,13 +1,13 @@
-# QWCFP GOLANG CLIENT 
+# [QWCFP](https://qwcfp.pix.com.br) GOLANG CLIENT 
 
-Welcome to QWCFP GOLANG CLIENT 
+Welcome to [QWCFP](https://qwcfp.pix.com.br) GOLANG CLIENT 
 
 
 Ensure that this folder is at the following location:
 `${GOPATH}/src/github.com/yourepena/qwcfp-client-go`
 
 
-## Getting Started with QWCFP GOLANG CLIENT 
+## Getting Started with [QWCFP](https://qwcfp.pix.com.br) GOLANG CLIENT 
 
 ### Requirements
 
@@ -26,7 +26,7 @@ package main
 
 import (
 	"fmt"
-	"github.com/yourepena/qwcfp-client"
+	"github.com/yourepena/qwcfp-client-go"
 	"strconv"
 )
 
