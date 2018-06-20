@@ -1,0 +1,8 @@
+<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:ws="http://ws.qwcss.com.br/">
+   <soapenv:Header/>
+   <soapenv:Body>
+      <ws:MyGroups>
+         <loginKey></loginKey>
+      </ws:MyGroups>
+   </soapenv:Body>
+</soapenv:Envelope>
