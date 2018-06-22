@@ -10,9 +10,39 @@ import (
 	"io/ioutil"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 )
+
+/* COMECO DO ENVELOPE DE MYGROUPS */
+type EnvelopeListVersions struct {
+	Body BodyListVersions `xml:"Body"`
+}
+type BodyListVersions struct {
+	ListVersionsResponse []ListVersionsResponse `xml:"ListVersionsResponse>return"`
+}
+type ListVersionsResponse struct {
+	Id                       int       `xml:"id"`
+	SenderMemberIdFk         int       `xml:"senderMemberIdFk"`
+	SenderMemberName         string    `xml:"senderMemberName"`
+	AddInformation           string    `xml:"addInformation"`
+	FileManagedIdFk          int       `xml:"fileManagedIdFk"`
+	FileStatusDomIdFk        int       `xml:"fileStatusDomIdFk"`
+	Version                  int       `xml:"version"`
+	SizeInBytes              float32   `xml:"sizeInBytes"`
+	ErrorCode                int       `xml:"errorCode"`
+	FileStatusDomStringValue string    `xml:"fileStatusDomStringValue"`
+	SourceFileFullPat        string    `xml:"sourceFileFullPat"`
+	DateStatusChanged        time.Time `xml:"dateStatusChanged"`
+	CreationDate             time.Time `xml:"creationDate"`
+	QueueDate                time.Time `xml:"queueDate"`
+	TransferDate             time.Time `xml:"transferDate"`
+	ErrorMsg                 string    `xml:"errorMsg"`
+	QwareObjId               string    `xml:"qwareObjId"`
+}
+
+/* FIM DO ENVELOPE DE MYGROUPS */
 
 /* COMECO DO ENVELOPE DE DOWNLOAD */
 type EnvelopeMove struct {
@@ -142,6 +172,7 @@ var (
 	mr EnvelopeDownload
 	mb EnvelopeMyGroups
 	mk EnvelopeMove
+	mj EnvelopeListVersions
 )
 
 type FileVersionRetorno struct {
@@ -182,32 +213,49 @@ func GetFilesFromQWCFP(loginKey string, groupName string, dnsServer string, root
 				filesid = append(filesid, FileNameId)
 
 				//Download do arquivo
-				down, errDow := Download(groupName, loginKey, FileNameEx, dnsServer, rootConfig)
 
-				if errDow != nil {
-					return nil, errDow
+				versions, errorHapp := ListVersions(FileNameId, loginKey, rootConfig, dnsServer)
+
+				if errorHapp != nil {
+					continue
 				}
 
-				if down.ErrorCode != 0 {
-					err := errors.New(fmt.Sprintf("%d: %s\n", down.ErrorCode, down.ErrorMsg))
-					return nil, err
+				//fmt.Printf("%+v", versions)
+
+				for k := 0; k < len(versions); k++ {
+
+					down, errorHapp := Download(groupName, loginKey, FileNameEx, dnsServer, rootConfig, versions[k])
+
+					if errorHapp != nil {
+						continue
+					}
+
+					if down.ErrorCode != 0 {
+						errorHapp = errors.New(fmt.Sprintf("%d: %s\n", down.ErrorCode, down.ErrorMsg))
+						continue
+					}
+
+					downArray = append(downArray, down)
 				}
 
-				downArray = append(downArray, down)
 			}
+
+			//fmt.Printf("%+v", names)
 
 			var retorno = []FileVersionRetorno{}
 
-			for u := 0; u < len(downArray); u++ {
+			for i := 0; i < len(names); i++ {
+				for u := 0; u < len(downArray); u++ {
 
-				fvr := FileVersionRetorno{
-					FileName:      names[u],
-					Path:          downArray[u].FileName,
-					FileVersionId: downArray[u].VersionId,
-					FileId:        filesid[u],
+					fvr := FileVersionRetorno{
+						FileName:      names[i],
+						Path:          downArray[u].FileName,
+						FileVersionId: downArray[u].VersionId,
+						FileId:        filesid[i],
+					}
+
+					retorno = append(retorno, fvr)
 				}
-
-				retorno = append(retorno, fvr)
 			}
 
 			return retorno, nil
@@ -225,35 +273,16 @@ func GetFilesFromQWCFP(loginKey string, groupName string, dnsServer string, root
 
 func GetGroup(groupName string, loginKey string, dnsServer string, rootConfig string) (int, error) {
 
-	str_array, err := parseFileToArraY(rootConfig + "MyGroups.xml")
+	groupFile := 0
 
-	var groupFile = 0
+	tagsName := map[string]string{
+		"loginKey": loginKey,
+	}
+
+	bh, err := populateXML(rootConfig, "MyGroups.xml", tagsName)
 
 	if err != nil {
 		return groupFile, err
-	}
-
-	var listFilesXML []string
-
-	for i := 0; i < len(str_array); i++ {
-		line := str_array[i]
-
-		line = strings.TrimSpace(line)
-
-		if line == "<loginKey></loginKey>" {
-			line = "<loginKey>" + loginKey + "</loginKey>"
-		}
-
-		listFilesXML = append(listFilesXML, line)
-	}
-
-	var bh = []byte{}
-
-	for i := 0; i < len(listFilesXML); i++ {
-		b := []byte(listFilesXML[i])
-		for j := 0; j < len(b); j++ {
-			bh = append(bh, b[j])
-		}
 	}
 
 	b, err := doRequest(dnsServer+"/qwcfpWebService/MyGroups?wsdl", bh)
@@ -279,52 +308,19 @@ func GetGroup(groupName string, loginKey string, dnsServer string, rootConfig st
 
 }
 
-func MoveFile(fileid string, groupid string, loginKey string, dnsServer string, rootConfig string) (bool, error) {
+func MoveFile(fileid string, groupid string, loginKey string, dnsServer string, rootConfig string) (ManipulateFileResponse, error) {
 
-	str_array, err := parseFileToArraY(rootConfig + "ManipulateFile.xml")
-
-	var sucesso = false
-
-	if err != nil {
-		return sucesso, err
+	tagsName := map[string]string{
+		"loginKey":      loginKey,
+		"idFileVersion": fileid,
+		"groupTo":       groupid,
 	}
 
-	var listFilesXML []string
-
-	for i := 0; i < len(str_array); i++ {
-		line := str_array[i]
-
-		line = strings.TrimSpace(line)
-
-		if line == "<loginKey></loginKey>" {
-			line = "<loginKey>" + loginKey + "</loginKey>"
-		}
-
-		if line == "<idFileVersion></idFileVersion>" {
-			line = "<idFileVersion>" + fileid + "</idFileVersion>"
-		}
-
-		if line == "<groupTo></groupTo>" {
-			line = "<groupTo>" + groupid + "</groupTo>"
-		}
-
-		listFilesXML = append(listFilesXML, line)
-	}
-
-	var bh = []byte{}
-
-	//fmt.Println(listFilesXML)
-
-	for i := 0; i < len(listFilesXML); i++ {
-		b := []byte(listFilesXML[i])
-		for j := 0; j < len(b); j++ {
-			bh = append(bh, b[j])
-		}
-	}
+	bh, err := populateXML(rootConfig, "ManipulateFile.xml", tagsName)
 
 	b, err := doRequest(dnsServer+"/qwcfpWebService/ManipulateFile?wsdl", bh)
 	if err != nil {
-		return sucesso, err
+		return ManipulateFileResponse{}, err
 	}
 
 	/*stringhss := CToGoString(b[:])
@@ -333,33 +329,25 @@ func MoveFile(fileid string, groupid string, loginKey string, dnsServer string, 
 	err = xml.Unmarshal(b, &mk)
 
 	if err != nil {
-		return sucesso, err
+		return ManipulateFileResponse{}, err
 	}
 
 	//fmt.Printf("%d: %s\n", mk.Body.ManipulateFileResponse.ErrorCode, mk.Body.ManipulateFileResponse.ErrorMsg)
 
-	return mk.Body.ManipulateFileResponse.ErrorCode == 0, nil
+	return mk.Body.ManipulateFileResponse, nil
 
 }
 
-func Login(dnsServer string, rootConfig string) (string, error) {
+func Login(username string, password string, dnsServer string, rootConfig string) (string, error) {
 
-	str_array, err := parseFileToArraY(rootConfig + "Login.xml")
-
-	if err != nil {
-		return "", err
+	tagsName := map[string]string{
+		"login":  username,
+		"esenha": password,
 	}
 
-	var bs = []byte{}
+	bh, err := populateXML(rootConfig, "Login.xml", tagsName)
 
-	for i := 0; i < len(str_array); i++ {
-		b := []byte(str_array[i])
-		for j := 0; j < len(b); j++ {
-			bs = append(bs, b[j])
-		}
-	}
-
-	b, err := doRequest(dnsServer+"/qwcfpWebService/Login?wsdl", bs)
+	b, err := doRequest(dnsServer+"/qwcfpWebService/Login?wsdl", bh)
 	if err != nil {
 		return "", err
 	}
@@ -381,40 +369,47 @@ func Login(dnsServer string, rootConfig string) (string, error) {
 
 }
 
-func ListFiles(groupName string, loginKey string, dnsServer string, rootConfig string) ([]ListFilesResponse, error) {
+func ListVersions(fileid int, loginKey string, rootConfig string, dnsServer string) ([]int, error) {
 
-	str_array, err := parseFileToArraY(rootConfig + "ListFiles.xml")
+	tagsName := map[string]string{
+		"loginKey": loginKey,
+		"fileId":   strconv.Itoa(fileid),
+	}
+
+	bh, err := populateXML(rootConfig, "ListVersions.xml", tagsName)
+
+	b, err := doRequest(dnsServer+"/qwcfpWebService/ListVersions?wsdl", bh)
+	if err != nil {
+		return nil, err
+	}
+
+	err = xml.Unmarshal(b, &mj)
 
 	if err != nil {
 		return nil, err
 	}
 
-	var listFilesXML []string
+	/*stringhss := CToGoString(b[:])
+	fmt.Println(stringhss)*/
 
-	for i := 0; i < len(str_array); i++ {
-		line := str_array[i]
+	var versions = []int{}
 
-		line = strings.TrimSpace(line)
-
-		if line == "<loginKey></loginKey>" {
-			line = "<loginKey>" + loginKey + "</loginKey>"
-		}
-
-		if line == "<group></group>" {
-			line = "<group>" + groupName + "</group>"
-		}
-
-		listFilesXML = append(listFilesXML, line)
+	for j := 0; j < len(mj.Body.ListVersionsResponse); j++ {
+		versions = append(versions, mj.Body.ListVersionsResponse[j].Version)
 	}
 
-	var bh = []byte{}
+	return versions, nil
 
-	for i := 0; i < len(listFilesXML); i++ {
-		b := []byte(listFilesXML[i])
-		for j := 0; j < len(b); j++ {
-			bh = append(bh, b[j])
-		}
+}
+
+func ListFiles(groupName string, loginKey string, dnsServer string, rootConfig string) ([]ListFilesResponse, error) {
+
+	tagsName := map[string]string{
+		"loginKey": loginKey,
+		"group":    groupName,
 	}
+
+	bh, err := populateXML(rootConfig, "ListFiles.xml", tagsName)
 
 	b, err := doRequest(dnsServer+"/qwcfpWebService/ListFiles?wsdl", bh)
 	if err != nil {
@@ -431,45 +426,18 @@ func ListFiles(groupName string, loginKey string, dnsServer string, rootConfig s
 
 }
 
-func Download(groupName string, loginKey string, FileNameEx string, dnsServer string, rootConfig string) (DownloadResponse, error) {
-	str_arrayEx, err := parseFileToArraY(rootConfig + "Download.xml")
+func Download(groupName string, loginKey string, FileNameEx string, dnsServer string, rootConfig string, version int) (DownloadResponse, error) {
 
-	if err != nil {
-		return DownloadResponse{}, err
+	tagsName := map[string]string{
+		"loginKey":      loginKey,
+		"fileName":      FileNameEx,
+		"versionNumber": strconv.Itoa(version),
+		"infoGroup":     groupName,
 	}
 
-	var downloadXML []string
+	bh, err := populateXML(rootConfig, "Download.xml", tagsName)
 
-	for j := 0; j < len(str_arrayEx); j++ {
-		line := str_arrayEx[j]
-
-		line = strings.TrimSpace(line)
-
-		if line == "<loginKey></loginKey>" {
-			line = "<loginKey>" + loginKey + "</loginKey>"
-		}
-
-		if line == "<fileName></fileName>" {
-			line = "<fileName>" + FileNameEx + "</fileName>"
-		}
-
-		if line == "<infoGroup></infoGroup>" {
-			line = "<infoGroup>" + groupName + "</infoGroup>"
-		}
-
-		downloadXML = append(downloadXML, line)
-	}
-
-	var bk = []byte{}
-
-	for u := 0; u < len(downloadXML); u++ {
-		b := []byte(downloadXML[u])
-		for op := 0; op < len(b); op++ {
-			bk = append(bk, b[op])
-		}
-	}
-
-	bvg, err := doRequest(dnsServer+"/qwcfpWebService/Download?wsdl", bk)
+	bvg, err := doRequest(dnsServer+"/qwcfpWebService/Download?wsdl", bh)
 	if err != nil {
 		return DownloadResponse{}, err
 	}
@@ -547,4 +515,40 @@ func parseFileToArraY(fileName string) ([]string, error) {
 	}
 
 	return str_array, err
+}
+
+func populateXML(rootConfig string, fileName string, tagsName map[string]string) ([]byte, error) {
+
+	str_arrayEx, err := parseFileToArraY(rootConfig + fileName)
+
+	if err != nil {
+		return nil, err
+	}
+
+	var xml []string
+
+	for j := 0; j < len(str_arrayEx); j++ {
+		line := str_arrayEx[j]
+
+		line = strings.TrimSpace(line)
+
+		for k, v := range tagsName {
+			if line == "<"+k+"></"+k+">" {
+				line = "<" + k + ">" + v + "</" + k + ">"
+			}
+		}
+
+		xml = append(xml, line)
+	}
+
+	var bk = []byte{}
+
+	for u := 0; u < len(xml); u++ {
+		b := []byte(xml[u])
+		for op := 0; op < len(b); op++ {
+			bk = append(bk, b[op])
+		}
+	}
+
+	return bk, nil
 }

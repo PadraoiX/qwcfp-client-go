@@ -5,7 +5,7 @@
          <loginKey></loginKey>
          <idFileVersion></idFileVersion>
          <operation>MOVE_FILE</operation>
-         <condition>REPL-GRP</condition>
+         <condition>NEW-GRP</condition>
          <groupTo></groupTo>
       </ws:ManipulateFile>
    </soapenv:Body>

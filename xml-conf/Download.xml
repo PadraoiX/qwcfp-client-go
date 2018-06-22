@@ -3,7 +3,7 @@
    <soapenv:Body>
       <ws:Download>
          <fileName></fileName>
-         <versionNumber>1</versionNumber>
+         <versionNumber></versionNumber>
          <infoGroup></infoGroup>
          <loginKey></loginKey>
       </ws:Download>
