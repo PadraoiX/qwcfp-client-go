@@ -4,7 +4,7 @@ Welcome to [QWCFP](https://qwcfp.pix.com.br) GOLANG CLIENT
 
 
 Ensure that this folder is at the following location:
-`${GOPATH}/src/github.com/yourepena/qwcfp-client-go`
+`${GOPATH}/src/github.com/PadraoiX/qwcfp-client-go`
 
 
 ## Getting Started with [QWCFP](https://qwcfp.pix.com.br) GOLANG CLIENT 
@@ -16,7 +16,7 @@ Ensure that this folder is at the following location:
 
 To push QWCFP GOLANG CLIENT  in the git repository, run the following commands:
 ```
-git remote set-url origin https://github.com/yourepena/qwcfp-client-go.git
+git remote set-url origin https://github.com/PadraoiX/qwcfp-client-go.git
 git push origin master
 ```
 
@@ -33,7 +33,7 @@ import (
 func main() {
 
 	dnsServer := "http://172.16.253.108:8080"
-	rootConfig := "/home/youre/workspaceGo/src/github.com/yourepena/sysoutjobbeat/soap/"
+	rootConfig := "/home/youre/workspaceGo/src/github.com/PadraoiX/sysoutjobbeat/soap/"
 	groupName := "GFNS"
 
 	loginKey, err := soap.Login(dnsServer, rootConfig)
