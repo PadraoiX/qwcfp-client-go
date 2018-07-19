@@ -1,0 +1,12 @@
+<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:ws="http://ws.qwcss.com.br/">
+   <soapenv:Header/>
+   <soapenv:Body>
+      <ws:ManipulateFile>
+         <loginKey></loginKey>
+         <idFileVersion></idFileVersion>
+         <operation>MOVE_FILE</operation>
+         <condition>NEW-GRP</condition>
+         <groupTo></groupTo>
+      </ws:ManipulateFile>
+   </soapenv:Body>
+</soapenv:Envelope>
