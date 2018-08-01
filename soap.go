@@ -20,7 +20,7 @@ import (
 /*func main() {
 
 	loginKey := "ec9a60a0536ba3548225f71a3395649f"
-	dnsServer := "http://172.16.253.60:8080"
+	cs.dnsServer := "http://172.16.253.60:8080"
 	rootConfig := "/home/youre/workspaceGo/src/github.com/yourepena/qwcfp-client-go/xml-conf/"
 	systemGroup := "P001"
 	groupSystemId := 0
@@ -284,16 +284,70 @@ type FileVersionRetorno struct {
 	FileId        int
 }
 
+type ClientSoap struct {
+	dnsServer  string
+	rootConfig string
+	loginKey   string
+}
+
+func New(username, password, dnsServer, rootConfig string) (*ClientSoap, error) {
+
+	loginKey, erro := Login(username, password, dnsServer, rootConfig)
+
+	if erro != nil || loginKey == "" {
+		err := errors.New(fmt.Sprintf("Houve um erro tetando realizar o login: %+v", erro))
+		return &ClientSoap{}, err
+	}
+
+	return &ClientSoap{
+		dnsServer:  dnsServer,
+		rootConfig: rootConfig,
+		loginKey:   loginKey,
+	}, nil
+
+}
+
+func Login(username, password, dnsServer, rootConfig string) (string, error) {
+
+	tagsName := map[string]string{
+		"login":  username,
+		"esenha": password,
+	}
+
+	bh, err := populateXML(rootConfig, "Login.xml", tagsName)
+
+	b, err := doRequest(dnsServer+"/qwcfpWebService/Login?wsdl", bh)
+	if err != nil {
+		return "", err
+	}
+
+	err = xml.Unmarshal(b, &r)
+
+	if err != nil {
+		return "", err
+	}
+
+	loginKey := r.Body.LoginResponse.LoginDTO.LoginKey
+
+	if len(loginKey) > 0 {
+		return loginKey, nil
+	} else {
+		err := errors.New(fmt.Sprintf("Error code:%+v\nError message:%+v", r.Body.LoginResponse.LoginDTO.ErrorCode, r.Body.LoginResponse.LoginDTO.ErrorMsg))
+		return "", err
+	}
+
+}
+
 /*
 groupName - Alias do Grupo
 dnsServer - DNS do servidor do QWCFP sem barra no final
 rootConfig -  Caminho dos XMLS de configuracao
 */
-func GetFilesFromQWCFP(loginKey string, groupName string, dnsServer string, rootConfig string) ([]FileVersionRetorno, error) {
+func (cs *ClientSoap) GetFilesFromQWCFP(groupName string) ([]FileVersionRetorno, error) {
 
-	if len(loginKey) > 0 {
+	if len(cs.loginKey) > 0 {
 		//Listando todos os arquivos do grupo
-		listFilesArray, errListFiles := ListFiles(groupName, loginKey, dnsServer, rootConfig)
+		listFilesArray, errListFiles := cs.ListFiles(groupName)
 
 		if errListFiles != nil {
 			return nil, errListFiles
@@ -316,7 +370,7 @@ func GetFilesFromQWCFP(loginKey string, groupName string, dnsServer string, root
 
 				//Download do arquivo
 
-				versions, errorHapp := ListVersions(FileNameId, loginKey, rootConfig, dnsServer)
+				versions, errorHapp := cs.ListVersions(FileNameId)
 
 				if errorHapp != nil {
 					continue
@@ -326,7 +380,7 @@ func GetFilesFromQWCFP(loginKey string, groupName string, dnsServer string, root
 
 				for k := 0; k < len(versions); k++ {
 
-					down, errorHapp := Download(groupName, loginKey, FileNameEx, dnsServer, rootConfig, versions[k])
+					down, errorHapp := cs.Download(groupName, FileNameEx, versions[k])
 
 					if errorHapp != nil {
 						continue
@@ -337,7 +391,10 @@ func GetFilesFromQWCFP(loginKey string, groupName string, dnsServer string, root
 						continue
 					}
 
-					downArray = append(downArray, down)
+					if down != (DownloadResponse{}) {
+						downArray = append(downArray, down)
+					}
+
 				}
 
 			}
@@ -373,21 +430,21 @@ func GetFilesFromQWCFP(loginKey string, groupName string, dnsServer string, root
 
 }
 
-func GetGroup(groupName string, loginKey string, dnsServer string, rootConfig string) (int, error) {
+func (cs *ClientSoap) GetGroup(groupName string) (int, error) {
 
 	groupFile := 0
 
 	tagsName := map[string]string{
-		"loginKey": loginKey,
+		"loginKey": cs.loginKey,
 	}
 
-	bh, err := populateXML(rootConfig, "MyGroups.xml", tagsName)
+	bh, err := populateXML(cs.rootConfig, "MyGroups.xml", tagsName)
 
 	if err != nil {
 		return groupFile, err
 	}
 
-	b, err := doRequest(dnsServer+"/qwcfpWebService/MyGroups?wsdl", bh)
+	b, err := doRequest(cs.dnsServer+"/qwcfpWebService/MyGroups?wsdl", bh)
 	if err != nil {
 		return groupFile, err
 	}
@@ -415,7 +472,7 @@ func GetGroup(groupName string, loginKey string, dnsServer string, rootConfig st
 
 }
 
-func CreateNewGroup(subordinatedGroupId int, apelido string, groupName string, loginKey string, dnsServer string, rootConfig string) (ManagerGroupResponse, error) {
+func (cs *ClientSoap) CreateNewGroup(subordinatedGroupId int, apelido string, groupName string) (ManagerGroupResponse, error) {
 
 	mo := EnvelopeNewGroup{}
 
@@ -423,16 +480,16 @@ func CreateNewGroup(subordinatedGroupId int, apelido string, groupName string, l
 		"subordinatedGroupId": strconv.Itoa(subordinatedGroupId),
 		"apelido":             apelido,
 		"groupName":           groupName,
-		"loginKey":            loginKey,
+		"loginKey":            cs.loginKey,
 	}
 
-	bh, err := populateXML(rootConfig, "ManagerGroup.xml", tagsName)
+	bh, err := populateXML(cs.rootConfig, "ManagerGroup.xml", tagsName)
 
 	if err != nil {
 		return ManagerGroupResponse{}, err
 	}
 
-	b, err := doRequest(dnsServer+"/qwcfpWebService/ManagerGroup?wsdl", bh)
+	b, err := doRequest(cs.dnsServer+"/qwcfpWebService/ManagerGroup?wsdl", bh)
 	if err != nil {
 		return ManagerGroupResponse{}, err
 	}
@@ -454,17 +511,17 @@ func CreateNewGroup(subordinatedGroupId int, apelido string, groupName string, l
 
 }
 
-func MoveFile(fileid string, groupid string, loginKey string, dnsServer string, rootConfig string) (ManipulateFileResponse, error) {
+func (cs *ClientSoap) MoveFile(fileid string, groupid string) (ManipulateFileResponse, error) {
 
 	tagsName := map[string]string{
-		"loginKey":      loginKey,
+		"loginKey":      cs.loginKey,
 		"idFileVersion": fileid,
 		"groupTo":       groupid,
 	}
 
-	bh, err := populateXML(rootConfig, "ManipulateFile.xml", tagsName)
+	bh, err := populateXML(cs.rootConfig, "ManipulateFile.xml", tagsName)
 
-	b, err := doRequest(dnsServer+"/qwcfpWebService/ManipulateFile?wsdl", bh)
+	b, err := doRequest(cs.dnsServer+"/qwcfpWebService/ManipulateFile?wsdl", bh)
 	if err != nil {
 		return ManipulateFileResponse{}, err
 	}
@@ -487,47 +544,16 @@ func MoveFile(fileid string, groupid string, loginKey string, dnsServer string, 
 
 }
 
-func Login(username string, password string, dnsServer string, rootConfig string) (string, error) {
+func (cs *ClientSoap) ListVersions(fileid int) ([]int, error) {
 
 	tagsName := map[string]string{
-		"login":  username,
-		"esenha": password,
-	}
-
-	bh, err := populateXML(rootConfig, "Login.xml", tagsName)
-
-	b, err := doRequest(dnsServer+"/qwcfpWebService/Login?wsdl", bh)
-	if err != nil {
-		return "", err
-	}
-
-	err = xml.Unmarshal(b, &r)
-
-	if err != nil {
-		return "", err
-	}
-
-	loginKey := r.Body.LoginResponse.LoginDTO.LoginKey
-
-	if len(loginKey) > 0 {
-		return loginKey, nil
-	} else {
-		err := errors.New(fmt.Sprintf("Error code:%+v\nError message:%+v", r.Body.LoginResponse.LoginDTO.ErrorCode, r.Body.LoginResponse.LoginDTO.ErrorMsg))
-		return "", err
-	}
-
-}
-
-func ListVersions(fileid int, loginKey string, rootConfig string, dnsServer string) ([]int, error) {
-
-	tagsName := map[string]string{
-		"loginKey": loginKey,
+		"loginKey": cs.loginKey,
 		"fileId":   strconv.Itoa(fileid),
 	}
 
-	bh, err := populateXML(rootConfig, "ListVersions.xml", tagsName)
+	bh, err := populateXML(cs.rootConfig, "ListVersions.xml", tagsName)
 
-	b, err := doRequest(dnsServer+"/qwcfpWebService/ListVersions?wsdl", bh)
+	b, err := doRequest(cs.dnsServer+"/qwcfpWebService/ListVersions?wsdl", bh)
 	if err != nil {
 		return nil, err
 	}
@@ -551,16 +577,16 @@ func ListVersions(fileid int, loginKey string, rootConfig string, dnsServer stri
 
 }
 
-func ListFiles(groupName string, loginKey string, dnsServer string, rootConfig string) ([]ListFilesResponse, error) {
+func (cs *ClientSoap) ListFiles(groupName string) ([]ListFilesResponse, error) {
 
 	tagsName := map[string]string{
-		"loginKey": loginKey,
+		"loginKey": cs.loginKey,
 		"group":    groupName,
 	}
 
-	bh, err := populateXML(rootConfig, "ListFiles.xml", tagsName)
+	bh, err := populateXML(cs.rootConfig, "ListFiles.xml", tagsName)
 
-	b, err := doRequest(dnsServer+"/qwcfpWebService/ListFiles?wsdl", bh)
+	b, err := doRequest(cs.dnsServer+"/qwcfpWebService/ListFiles?wsdl", bh)
 	if err != nil {
 		return nil, err
 	}
@@ -575,18 +601,18 @@ func ListFiles(groupName string, loginKey string, dnsServer string, rootConfig s
 
 }
 
-func Download(groupName string, loginKey string, FileNameEx string, dnsServer string, rootConfig string, version int) (DownloadResponse, error) {
+func (cs *ClientSoap) Download(groupName string, FileNameEx string, version int) (DownloadResponse, error) {
 
 	tagsName := map[string]string{
-		"loginKey":      loginKey,
+		"loginKey":      cs.loginKey,
 		"fileName":      FileNameEx,
 		"versionNumber": strconv.Itoa(version),
 		"infoGroup":     groupName,
 	}
 
-	bh, err := populateXML(rootConfig, "Download.xml", tagsName)
+	bh, err := populateXML(cs.rootConfig, "Download.xml", tagsName)
 
-	bvg, err := doRequest(dnsServer+"/qwcfpWebService/Download?wsdl", bh)
+	bvg, err := doRequest(cs.dnsServer+"/qwcfpWebService/Download?wsdl", bh)
 	if err != nil {
 		return DownloadResponse{}, err
 	}
