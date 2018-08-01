@@ -1,0 +1,26 @@
+<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:ws="http://ws.qwcss.com.br/">
+   <soapenv:Header/>
+   <soapenv:Body>
+      <ws:ManagerGroup>
+         <apelido></apelido>
+         <groupName></groupName>
+         <loginKey></loginKey>
+         <subordinatedGroupId></subordinatedGroupId>
+         <inputDate>01:01:2040:12:00:00</inputDate>
+         <outputDate>01:01:2040:12:00:00</outputDate>
+         <daysLimitDiscart>30</daysLimitDiscart>
+         <fileLimitVersions>1000000</fileLimitVersions>
+         <areaId>6</areaId>
+         <groupManagerId>2</groupManagerId>
+         <supportPerson1Id>2</supportPerson1Id>
+         <supportPerson2Id>2</supportPerson2Id>
+         <ownerCreator>Gestor de Infra</ownerCreator>
+         <shortDescription>Grupo de armazenamento de SYSOUTs</shortDescription>
+         <spaceLimit>100000000</spaceLimit>
+         <aceptVersioning>true</aceptVersioning>
+         <justificativa>Grupo de armazenamento de SYSOUTs</justificativa>
+         <fileSystemStorageType>STORAGE_FS</fileSystemStorageType>
+         <notificationType>EMAIL</notificationType>
+      </ws:ManagerGroup>
+   </soapenv:Body>
+</soapenv:Envelope>

@@ -1,5 +1,7 @@
 package soap
 
+// package main
+
 import (
 	"bufio"
 	"bytes"
@@ -14,6 +16,106 @@ import (
 	"strings"
 	"time"
 )
+
+/*func main() {
+
+	loginKey := "ec9a60a0536ba3548225f71a3395649f"
+	dnsServer := "http://172.16.253.60:8080"
+	rootConfig := "/home/youre/workspaceGo/src/github.com/yourepena/qwcfp-client-go/xml-conf/"
+	systemGroup := "P001"
+	groupSystemId := 0
+
+	FileVersionId := "1098"
+
+	//verificando se o sistema do arquivo possui um grupo para ele
+	groupId, errG := GetGroup(systemGroup, loginKey, dnsServer, rootConfig)
+
+	if errG != nil { //nao foi encontrado um grupo para esse sistema, procedendo com o cadastro do mesmo
+		managerGroup, erroCrG := CreateNewGroup(1195, systemGroup, systemGroup, loginKey, dnsServer, rootConfig)
+		if erroCrG != nil {
+			fmt.Printf("Aconteceu criando o grupo do sistema %s, parando o Programa... %s", systemGroup, erroCrG)
+		}
+		groupSystemId = managerGroup.GroupId
+	} else {
+		groupSystemId = groupId
+	}
+
+	if groupSystemId > 0 { //Vamos tentar encontrar o subgrupo
+
+		subgroupJobId := 0
+
+		// for j := 0; j < len(outputarraylet); j++ {
+
+		nome := "FDS00661_P001"
+
+		subgroupId, errSG := GetGroup(nome, loginKey, dnsServer, rootConfig)
+
+		if errSG != nil { // Nao encontramos, vamos criar um sub-grupo com o nome do Job
+
+			jobGroup, erroCrSG := CreateNewGroup(groupSystemId, nome, nome, loginKey, dnsServer, rootConfig)
+
+			if erroCrSG != nil {
+				fmt.Printf("Aconteceu criando o grupo do sistema %s, parando o Programa... %s", nome, erroCrSG)
+
+			}
+
+			subgroupJobId = jobGroup.GroupId
+
+		} else {
+			subgroupJobId = subgroupId
+		}
+
+		// }
+
+		if subgroupJobId > 0 {
+			//Movendo o arquivo para o Grupo do Job Correspondente
+			_, errorM := MoveFile(FileVersionId, strconv.Itoa(subgroupJobId), loginKey, dnsServer, rootConfig)
+
+			if errorM != nil {
+				fmt.Printf("Aconteu um erro movendo o arquivo para o grupo %d, parando o Programa... %s", subgroupJobId, errorM)
+
+			}
+
+			fmt.Printf("Sucesso muleque")
+		}
+
+	}
+
+}*/
+
+/* COMECO DO ENVELOPE DE NEWGROUP*/
+type EnvelopeNewGroup struct {
+	Body ManagerGroup `xml:"Body"`
+}
+type ManagerGroup struct {
+	ManagerGroupResponse ManagerGroupResponse `xml:"ManagerGroupResponse>return"`
+}
+
+type ManagerGroupResponse struct {
+	GroupId                 int       `xml:"groupId"`
+	Apelido                 string    `xml:"apelido"`
+	Nome                    string    `xml:"nome"`
+	Description             string    `xml:"Description"`
+	OwnerCreator            string    `xml:"ownerCreator"`
+	CreationDate            time.Time `xml:"creationDate"`
+	InputDateLimit          time.Time `xml:"inputDateLimit"`
+	OutputDateLimit         time.Time `xml:"outputDateLimit"`
+	SizeInBytes             int       `xml:"sizeInBytes"`
+	DaysLimitDiscart        int       `xml:"daysLimitDiscart"`
+	AceptVersion            string    `xml:"aceptVersion"`
+	Status                  int       `xml:"status"`
+	SubordinateGroup        int       `xml:"subordinateGroup"`
+	ManagerGroupId          int       `xml:"managerGroupId"`
+	ErrorCode               int       `xml:"errorCode"`
+	ErrorMsg                string    `xml:"errorMsg"`
+	Suporte1Id              int       `xml:"suporte1Id"`
+	AreaId                  int       `xml:"areaId"`
+	Suporte2Id              int       `xml:"suporte2Id"`
+	FileSystemStorageDomain int       `xml:"fileSystemStorageDomain"`
+	NotificationTypeDomain  int       `xml:"notificationTypeDomain"`
+}
+
+/*FIM DO ENVELOPE DE NEWGROUP*/
 
 /* COMECO DO ENVELOPE DE MYGROUPS */
 type EnvelopeListVersions struct {
@@ -310,6 +412,45 @@ func GetGroup(groupName string, loginKey string, dnsServer string, rootConfig st
 	}
 
 	return groupFile, nil
+
+}
+
+func CreateNewGroup(subordinatedGroupId int, apelido string, groupName string, loginKey string, dnsServer string, rootConfig string) (ManagerGroupResponse, error) {
+
+	mo := EnvelopeNewGroup{}
+
+	tagsName := map[string]string{
+		"subordinatedGroupId": strconv.Itoa(subordinatedGroupId),
+		"apelido":             apelido,
+		"groupName":           groupName,
+		"loginKey":            loginKey,
+	}
+
+	bh, err := populateXML(rootConfig, "ManagerGroup.xml", tagsName)
+
+	if err != nil {
+		return ManagerGroupResponse{}, err
+	}
+
+	b, err := doRequest(dnsServer+"/qwcfpWebService/ManagerGroup?wsdl", bh)
+	if err != nil {
+		return ManagerGroupResponse{}, err
+	}
+
+	err = xml.Unmarshal(b, &mo)
+
+	if err != nil {
+		return ManagerGroupResponse{}, err
+	}
+
+	if mo.Body.ManagerGroupResponse.ErrorCode != 0 {
+		errE := errors.New(fmt.Sprintf("%d: %s\n", mo.Body.ManagerGroupResponse.ErrorCode, mo.Body.ManagerGroupResponse.ErrorMsg))
+		return ManagerGroupResponse{}, errE
+	}
+
+	return mo.Body.ManagerGroupResponse, nil
+
+	//fmt.Printf("Mas que porra e essa: %+v\n\n\n\n", mo.Body.ManagerGroupResponse[0])
 
 }
 
