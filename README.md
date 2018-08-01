@@ -20,7 +20,7 @@ git remote set-url origin https://github.com/yourepena/qwcfp-client-go.git
 git push origin master
 ```
 
-### Exemple
+### Example
 ```go
 package main
 
