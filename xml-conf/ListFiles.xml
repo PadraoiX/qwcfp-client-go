@@ -3,8 +3,8 @@
    <soapenv:Body>
       <ws:ListFiles>
          <group></group>
-         <pager>0</pager>
-         <records>10000000000</records>
+         <pager></pager>
+         <records></records>
          <loginKey></loginKey>
       </ws:ListFiles>
    </soapenv:Body>

@@ -19,6 +19,67 @@ import (
 
 /*func main() {
 
+	username := "98765432100"
+	password := "33C3109AAA028CCB"
+	dnsServer := "http://172.16.253.166:8080"
+	rootConfig := "/home/youre/workspaceGo/src/github.com/yourepena/qwcfp-client-go/xml-conf/"
+
+	str, erro := Login(username, password, dnsServer, rootConfig)
+
+	if erro != nil {
+		fmt.Printf("%s", erro)
+	} else {
+		fmt.Printf("%+v", str)
+	}
+
+}*/
+
+/*func main() {
+
+	username := "98765432100"
+	password := "33C3109AAA028CCB"
+	dnsServer := "http://172.16.253.60:8080"
+	groupName := "SYSTK"
+	rootConfig := "/home/youre/workspaceGo/src/github.com/yourepena/qwcfp-client-go/xml-conf/"
+
+	cs, erroCs := New(username, password, dnsServer, rootConfig)
+
+	if erroCs != nil {
+		fmt.Printf("Aconteceu um erro realizando login, parando o programa.... %+v", erroCs)
+	}
+
+	page := 0
+	rows := 10
+
+	listFilesArray, errListFiles := cs.ListFiles(groupName, page, 1)
+
+	if errListFiles != nil {
+		fmt.Printf("Aconteceu um erro realizando login, parando o programa.... %+v", errListFiles)
+	}
+
+	if len(listFilesArray) > 0 {
+		total := listFilesArray[0].TotalRecords
+
+		fmt.Printf("Temos um total de %d arquivos por isso vamos ter %d lotes", total, total/rows)
+
+		for j := 0; j < total/rows; j++ {
+
+			fileVersionArray, errorR := cs.GetFilesFromQWCFP(groupName, j, rows)
+
+			if errorR != nil {
+				fmt.Printf("Aconteceu um erro realizando login, parando o programa.... %+v", errorR)
+			}
+
+			for i := 0; i < len(fileVersionArray); i++ {
+				fmt.Printf("Lote %d -> Arquivo %d: %+v", (j + 1), (i + 1), fileVersionArray[i])
+			}
+		}
+	}
+
+}*/
+
+/*func main() {
+
 	loginKey := "ec9a60a0536ba3548225f71a3395649f"
 	cs.dnsServer := "http://172.16.253.60:8080"
 	rootConfig := "/home/youre/workspaceGo/src/github.com/yourepena/qwcfp-client-go/xml-conf/"
@@ -268,20 +329,9 @@ type LoginDTO struct {
 
 /* FIM DO ENVELOPE DE LOGIN */
 
-var (
-	r  EnvelopeLogin
-	mx EnvelopeListFiles
-	mr EnvelopeDownload
-	mb EnvelopeMyGroups
-	mk EnvelopeMove
-	mj EnvelopeListVersions
-)
-
 type FileVersionRetorno struct {
-	FileName      string
 	Path          string
 	FileVersionId int
-	FileId        int
 }
 
 type ClientSoap struct {
@@ -308,6 +358,8 @@ func New(username, password, dnsServer, rootConfig string) (*ClientSoap, error) 
 }
 
 func Login(username, password, dnsServer, rootConfig string) (string, error) {
+
+	r := EnvelopeLogin{}
 
 	tagsName := map[string]string{
 		"login":  username,
@@ -338,99 +390,9 @@ func Login(username, password, dnsServer, rootConfig string) (string, error) {
 
 }
 
-/*
-groupName - Alias do Grupo
-dnsServer - DNS do servidor do QWCFP sem barra no final
-rootConfig -  Caminho dos XMLS de configuracao
-*/
-func (cs *ClientSoap) GetFilesFromQWCFP(groupName string) ([]FileVersionRetorno, error) {
-
-	if len(cs.loginKey) > 0 {
-		//Listando todos os arquivos do grupo
-		listFilesArray, errListFiles := cs.ListFiles(groupName)
-
-		if errListFiles != nil {
-			return nil, errListFiles
-		}
-
-		var names = []string{}
-		var filesid = []int{}
-
-		if len(listFilesArray) > 0 {
-
-			var downArray = []DownloadResponse{}
-
-			for i := 0; i < len(listFilesArray); i++ {
-
-				FileNameEx := listFilesArray[i].FileName
-				FileNameId := listFilesArray[i].Fileid
-
-				names = append(names, FileNameEx)
-				filesid = append(filesid, FileNameId)
-
-				//Download do arquivo
-
-				versions, errorHapp := cs.ListVersions(FileNameId)
-
-				if errorHapp != nil {
-					continue
-				}
-
-				//fmt.Printf("%+v", versions)
-
-				for k := 0; k < len(versions); k++ {
-
-					down, errorHapp := cs.Download(groupName, FileNameEx, versions[k])
-
-					if errorHapp != nil {
-						continue
-					}
-
-					if down.ErrorCode != 0 {
-						errorHapp = errors.New(fmt.Sprintf("%d: %s\n", down.ErrorCode, down.ErrorMsg))
-						continue
-					}
-
-					if down != (DownloadResponse{}) {
-						downArray = append(downArray, down)
-					}
-
-				}
-
-			}
-
-			//fmt.Printf("%+v", names)
-
-			var retorno = []FileVersionRetorno{}
-
-			for i := 0; i < len(names); i++ {
-				for u := 0; u < len(downArray); u++ {
-
-					fvr := FileVersionRetorno{
-						FileName:      names[i],
-						Path:          downArray[u].FileName,
-						FileVersionId: downArray[u].VersionId,
-						FileId:        filesid[i],
-					}
-
-					retorno = append(retorno, fvr)
-				}
-			}
-
-			return retorno, nil
-
-		} else {
-			err := errors.New("Group empty")
-			return nil, err
-		}
-	} else {
-		err := errors.New("LoginKey empty")
-		return nil, err
-	}
-
-}
-
 func (cs *ClientSoap) GetGroup(groupName string) (int, error) {
+
+	mb := EnvelopeMyGroups{}
 
 	groupFile := 0
 
@@ -511,12 +473,14 @@ func (cs *ClientSoap) CreateNewGroup(subordinatedGroupId int, apelido string, gr
 
 }
 
-func (cs *ClientSoap) MoveFile(fileid string, groupid string) (ManipulateFileResponse, error) {
+func (cs *ClientSoap) MoveFile(fileid, groupid int) (ManipulateFileResponse, error) {
+
+	mk := EnvelopeMove{}
 
 	tagsName := map[string]string{
 		"loginKey":      cs.loginKey,
-		"idFileVersion": fileid,
-		"groupTo":       groupid,
+		"idFileVersion": strconv.Itoa(fileid),
+		"groupTo":       strconv.Itoa(groupid),
 	}
 
 	bh, err := populateXML(cs.rootConfig, "ManipulateFile.xml", tagsName)
@@ -544,7 +508,109 @@ func (cs *ClientSoap) MoveFile(fileid string, groupid string) (ManipulateFileRes
 
 }
 
+/*
+groupName - Alias do Grupo
+dnsServer - DNS do servidor do QWCFP sem barra no final
+rootConfig -  Caminho dos XMLS de configuracao
+*/
+func (cs *ClientSoap) GetFilesFromQWCFP(groupName string, pager, records int) ([]DownloadResponse, error) {
+
+	if len(cs.loginKey) > 0 {
+		//Listando todos os arquivos do grupo
+		listFilesArray, errListFiles := cs.ListFiles(groupName, pager, records)
+
+		if errListFiles != nil {
+			return nil, errListFiles
+		}
+
+		//	fmt.Printf("Encontrados %d arquivos no grupo %s\n", len(listFilesArray), groupName)
+
+		/*	var names = []string{}
+			var filesid = []int{}*/
+
+		if len(listFilesArray) > 0 {
+
+			var downArray = []DownloadResponse{}
+
+			for i := 0; i < len(listFilesArray); i++ {
+
+				FileNameEx := listFilesArray[i].FileName
+				// names = append(names, FileNameEx)
+
+				FileNameId := listFilesArray[i].Fileid
+
+				// filesid = append(filesid, FileNameId)
+
+				//Download do arquivo
+
+				versions, errorHapp := cs.ListVersions(FileNameId)
+
+				if errorHapp != nil {
+					fmt.Printf("Ocorreu um erro pegando a versao do arquivo %+v", errorHapp)
+					continue
+				}
+
+				//fmt.Printf("%+v", versions)
+
+				for k := 0; k < len(versions); k++ {
+
+					down, errorHapp := cs.Download(groupName, FileNameEx, versions[k])
+
+					if errorHapp != nil {
+						fmt.Printf("Ocorreu um erro fazendo download do arquivo %s, no grupo %s, na versao %+v, \n\n Erro:\n %+v", FileNameEx, groupName, versions[k], errorHapp)
+						continue
+					}
+
+					if down.ErrorCode != 0 {
+						errorHapp = errors.New(fmt.Sprintf("%d: %s\n", down.ErrorCode, down.ErrorMsg))
+						fmt.Printf("Ocorreu um erro fazendo download do arquivo %s, no grupo %s, na versao %+v, \n\n Erro:\n %+v", FileNameEx, groupName, versions[k], errorHapp)
+						continue
+					}
+
+					if down != (DownloadResponse{}) {
+
+						downArray = append(downArray, down)
+					}
+
+				}
+
+			}
+
+			/*fmt.Println("Quantidade de arquivos %d", len(names))
+			fmt.Println("Quantidade de versoes%d", len(downArray))
+
+			var retorno = []FileVersionRetorno{}
+
+			for i := 0; i < len(names); i++ {
+				for u := 0; u < len(downArray); u++ {
+
+					fvr := FileVersionRetorno{
+						FileName:      names[i],
+						Path:          downArray[u].FileName,
+						FileVersionId: downArray[u].VersionId,
+						FileId:        filesid[i],
+					}
+
+					retorno = append(retorno, fvr)
+				}
+			}*/
+
+			return downArray, nil
+
+		} else {
+			err := errors.New("Group empty")
+			return nil, err
+		}
+	} else {
+		err := errors.New("LoginKey empty")
+		return nil, err
+	}
+
+}
+
 func (cs *ClientSoap) ListVersions(fileid int) ([]int, error) {
+
+	mj := EnvelopeListVersions{}
 
 	tagsName := map[string]string{
 		"loginKey": cs.loginKey,
@@ -577,11 +643,15 @@ func (cs *ClientSoap) ListVersions(fileid int) ([]int, error) {
 
 }
 
-func (cs *ClientSoap) ListFiles(groupName string) ([]ListFilesResponse, error) {
+func (cs *ClientSoap) ListFiles(groupName string, pager, records int) ([]ListFilesResponse, error) {
+
+	mx := EnvelopeListFiles{}
 
 	tagsName := map[string]string{
 		"loginKey": cs.loginKey,
 		"group":    groupName,
+		"pager":    strconv.Itoa(pager),
+		"records":  strconv.Itoa(records),
 	}
 
 	bh, err := populateXML(cs.rootConfig, "ListFiles.xml", tagsName)
@@ -591,6 +661,9 @@ func (cs *ClientSoap) ListFiles(groupName string) ([]ListFilesResponse, error) {
 		return nil, err
 	}
 
+	/*	stringhss := CToGoString(b[:])
+		fmt.Println(stringhss)
+	*/
 	err = xml.Unmarshal(b, &mx)
 
 	if err != nil {
@@ -602,6 +675,8 @@ func (cs *ClientSoap) ListFiles(groupName string) ([]ListFilesResponse, error) {
 }
 
 func (cs *ClientSoap) Download(groupName string, FileNameEx string, version int) (DownloadResponse, error) {
+
+	mr := EnvelopeDownload{}
 
 	tagsName := map[string]string{
 		"loginKey":      cs.loginKey,

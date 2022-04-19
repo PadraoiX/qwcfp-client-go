@@ -16,7 +16,7 @@
          <supportPerson2Id>2</supportPerson2Id>
          <ownerCreator>Gestor de Infra</ownerCreator>
          <shortDescription>Grupo de armazenamento de SYSOUTs</shortDescription>
-         <spaceLimit>100000000</spaceLimit>
+         <spaceLimit>10000000000</spaceLimit>
          <aceptVersioning>true</aceptVersioning>
          <justificativa>Grupo de armazenamento de SYSOUTs</justificativa>
          <fileSystemStorageType>STORAGE_FS</fileSystemStorageType>
